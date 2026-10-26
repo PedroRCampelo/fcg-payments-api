@@ -117,7 +117,7 @@ public class PagamentoServiceTests
         var pedido = Pedido(250m);
         var servico = CriarServico();
         await servico.ProcessarPedidoAsync(pedido);
-        _logger.Registros.Clear();
+        _logger.Limpar();
 
         await servico.ProcessarPedidoAsync(pedido);
 
