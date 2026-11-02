@@ -1,0 +1,18 @@
+# Configuracao NAO sensivel de payments-api: host do RabbitMQ, nomes das filas e, quando houver, parametros de negocio.
+# Os nomes das filas precisam ser iguais nos servicos que declaram e nos que consomem cada fila
+# (users, catalog, payments e notifications). Se mudar um aqui, mude nos demais.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payments-api-config
+  namespace: fcg
+  labels:
+    app.kubernetes.io/name: payments-api
+    app.kubernetes.io/part-of: fcg
+data:
+  RabbitMq__Host: rabbitmq
+  RabbitMq__Queues__PaymentsOrderPlaced: payments.order-placed
+  RabbitMq__Queues__CatalogPaymentProcessed: catalog.payment-processed
+  RabbitMq__Queues__NotificationsPaymentProcessed: notifications.payment-processed
+  # Limite de aprovacao do pagamento simulado: aprova se o preco for menor ou igual a ele.
+  Payments__LimiteDeAprovacao: "200"

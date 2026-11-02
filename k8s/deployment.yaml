@@ -1,0 +1,86 @@
+# Consome OrderPlacedEvent e publica PaymentProcessedEvent (declara as filas do Catalog e do Notifications).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-api
+  namespace: fcg
+  labels:
+    app.kubernetes.io/name: payments-api
+    app.kubernetes.io/part-of: fcg
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payments-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: payments-api
+        app.kubernetes.io/part-of: fcg
+    spec:
+      # Sem as variaveis <SERVICO>_PORT=tcp://... que o Kubernetes injeta por padrao para cada Service.
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654   # usuario `app` da imagem aspnet
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: payments-api
+          # A imagem existe so no daemon local (docker compose build), nunca em um registry:
+          # IfNotPresent faz o kubelet usar a imagem local em vez de tentar baixar.
+          image: fcg-payments-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: payments-api-config
+            - secretRef:
+                name: payments-api-secret
+          env:
+            # O MESMO Secret para users-api, catalog-api e payments-api: quem emite e quem valida
+            # o token precisam da mesma chave.
+            - name: JWT__SIGNINGKEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-signing-key
+                  key: JWT__SIGNINGKEY
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # Na subida o servico aplica as migracoes (quando tem banco) e conecta ao RabbitMQ, com retentativas;
+          # o /health so devolve 200 depois disso e pode levar minutos se a infra ainda estiver subindo.
+          # Enquanto a startupProbe nao passar, a liveness e a readiness nao rodam: 90 x 5 s = 7,5 min de folego.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 90
+          # Readiness usa /health, que inclui a conexao com o broker: sem RabbitMQ o pod sai do Service.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Liveness usa /health/live, que nao depende de nada externo: uma queda do RabbitMQ ou do
+          # PostgreSQL nao pode reiniciar os pods (o MassTransit reconecta sozinho).
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
