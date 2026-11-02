@@ -1,0 +1,17 @@
+# Fora do contexto de build: artefatos locais, testes e arquivos que não vão para a imagem.
+**/bin/
+**/obj/
+.git/
+.gitignore
+.vs/
+.idea/
+.config/
+tests/
+*.sln
+*.md
+Dockerfile
+.dockerignore
+
+# Config e credenciais de desenvolvimento (localhost) não entram na imagem: no container tudo vem do ambiente.
+**/appsettings.Development.json
+**/launchSettings.json
