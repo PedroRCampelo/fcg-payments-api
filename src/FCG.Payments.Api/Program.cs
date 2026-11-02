@@ -6,6 +6,7 @@ using FCG.Payments.Infrastructure.Messaging;
 using FCG.Payments.Infrastructure.Persistence;
 using FCG.Payments.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -110,6 +111,9 @@ try
     app.UseAuthorization();
 
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+    // Liveness sem dependências: só diz que o processo responde. O /health abaixo inclui o broker (MassTransit)
+    // e serve de readiness e startup; ele não pode ser a liveness, senão uma queda do RabbitMQ reiniciaria os pods.
+    app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
     app.MapHealthChecks("/health");
 
     app.MapPagamentoEndpoints();
